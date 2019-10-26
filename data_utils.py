@@ -9,7 +9,33 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from pytorch_pretrained_bert import BertTokenizer
+from collections import defaultdict
 
+def match_tokenized_to_untokenized(tokenized_sent, untokenized_sent):
+    '''Aligns tokenized and untokenized sentence given subwords "##" prefixed
+    Assuming that each subword token that does not start a new word is prefixed
+    by two hashes, "##", computes an alignment between the un-subword-tokenized
+    and subword-tokenized sentences.
+    Args:
+      tokenized_sent: a list of strings describing a subword-tokenized sentence
+      untokenized_sent: a list of strings describing a sentence, no subword tok.
+    Returns:
+      A dictionary of type {int: list(int)} mapping each untokenized sentence
+      index to a list of subword-tokenized sentence indices
+    '''
+    mapping = defaultdict(list)
+    untokenized_sent_index = 0
+    tokenized_sent_index = 1
+    while (untokenized_sent_index < len(untokenized_sent) and
+        tokenized_sent_index < len(tokenized_sent)):
+      while (tokenized_sent_index + 1 < len(tokenized_sent) and
+          tokenized_sent[tokenized_sent_index + 1].startswith('##')):
+        mapping[untokenized_sent_index].append(tokenized_sent_index)
+        tokenized_sent_index += 1
+      mapping[untokenized_sent_index].append(tokenized_sent_index)
+      untokenized_sent_index += 1
+      tokenized_sent_index += 1
+    return mapping
 
 def build_tokenizer(fnames, max_seq_len, dat_fname):
     if os.path.exists(dat_fname):
@@ -113,19 +139,26 @@ class Tokenizer4Bert:
         self.tokenizer = BertTokenizer.from_pretrained(pretrained_bert_name)
         self.max_seq_len = max_seq_len
 
-    def text_to_sequence(self, text, reverse=False, padding='post', truncating='post'):
+    def text_to_sequence(self, text, reverse=False, padding='post', truncating='post', raw=False):
         sequence = self.tokenizer.convert_tokens_to_ids(self.tokenizer.tokenize(text))
         if len(sequence) == 0:
             sequence = [0]
         if reverse:
             sequence = sequence[::-1]
-        return pad_and_truncate(sequence, self.max_seq_len, padding=padding, truncating=truncating)
+        if not raw:
+            return pad_and_truncate(sequence, self.max_seq_len, padding=padding, truncating=truncating)
+        else:
+            return sequence
 
 
 class ABSADataset(Dataset):
     def __init__(self, fname, tokenizer):
         fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
         lines = fin.readlines()
+        fin.close()
+
+        fin = open(fname+'.graph', 'rb')
+        idx2gragh = pickle.load(fin)
         fin.close()
 
         all_data = []
@@ -135,38 +168,30 @@ class ABSADataset(Dataset):
             polarity = lines[i + 2].strip()
 
             text_raw_indices = tokenizer.text_to_sequence(text_left + " " + aspect + " " + text_right)
-            text_raw_without_aspect_indices = tokenizer.text_to_sequence(text_left + " " + text_right)
-            text_left_indices = tokenizer.text_to_sequence(text_left)
-            text_left_with_aspect_indices = tokenizer.text_to_sequence(text_left + " " + aspect)
-            text_right_indices = tokenizer.text_to_sequence(text_right, reverse=True)
-            text_right_with_aspect_indices = tokenizer.text_to_sequence(" " + aspect + " " + text_right, reverse=True)
             aspect_indices = tokenizer.text_to_sequence(aspect)
-            left_context_len = np.sum(text_left_indices != 0)
             aspect_len = np.sum(aspect_indices != 0)
-            aspect_in_text = torch.tensor([left_context_len.item(), (left_context_len + aspect_len - 1).item()])
             polarity = int(polarity) + 1
 
+
             text_bert_indices = tokenizer.text_to_sequence('[CLS] ' + text_left + " " + aspect + " " + text_right + ' [SEP] ' + aspect + " [SEP]")
+
             bert_segments_ids = np.asarray([0] * (np.sum(text_raw_indices != 0) + 2) + [1] * (aspect_len + 1))
             bert_segments_ids = pad_and_truncate(bert_segments_ids, tokenizer.max_seq_len)
 
-            text_raw_bert_indices = tokenizer.text_to_sequence("[CLS] " + text_left + " " + aspect + " " + text_right + " [SEP]")
-            aspect_bert_indices = tokenizer.text_to_sequence("[CLS] " + aspect + " [SEP]")
+            dependency_graph = idx2gragh[i]
+            length = len(dependency_graph)
+            bert_input = "[CLS] " + text_left + " " + aspect + " " + text_right + " [SEP]"
+            tokenized_sent = tokenizer.tokenizer.wordpiece_tokenizer.tokenize(bert_input)
+            untok_tok_mapping = match_tokenized_to_untokenized(tokenized_sent, bert_input)
+
 
             data = {
                 'text_bert_indices': text_bert_indices,
                 'bert_segments_ids': bert_segments_ids,
-                'text_raw_bert_indices': text_raw_bert_indices,
-                'aspect_bert_indices': aspect_bert_indices,
-                'text_raw_indices': text_raw_indices,
-                'text_raw_without_aspect_indices': text_raw_without_aspect_indices,
-                'text_left_indices': text_left_indices,
-                'text_left_with_aspect_indices': text_left_with_aspect_indices,
-                'text_right_indices': text_right_indices,
-                'text_right_with_aspect_indices': text_right_with_aspect_indices,
-                'aspect_indices': aspect_indices,
-                'aspect_in_text': aspect_in_text,
                 'polarity': polarity,
+                'dependency_graph': dependency_graph,
+                'untok_tok_mapping': untok_tok_mapping,
+                'length': length
             }
 
             all_data.append(data)
