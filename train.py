@@ -47,8 +47,8 @@ class Instructor:
                 dat_fname='{0}_{1}_embedding_matrix.dat'.format(str(opt.embed_dim), opt.dataset))
             self.model = opt.model_class(embedding_matrix, opt).to(opt.device)
 
-        self.trainset = ABSADataset(opt.dataset_file['train'], tokenizer)
-        self.testset = ABSADataset(opt.dataset_file['test'], tokenizer)
+        self.trainset = ABSADataset(opt.dataset_file['train'], tokenizer, shuffle=True)
+        self.testset = ABSADataset(opt.dataset_file['test'], tokenizer, shuffle=False)
         assert 0 <= opt.valset_ratio < 1
         if opt.valset_ratio > 0:
             valset_len = int(len(self.trainset) * opt.valset_ratio)
@@ -101,10 +101,11 @@ class Instructor:
                 optimizer.zero_grad()
 
                 inputs = [sample_batched[col].to(self.opt.device) if col not in self.opt.nonTensors else sample_batched[col] for col in self.opt.inputs_cols]
-                outputs = self.model(inputs)
+                outputs, gate, kl = self.model(inputs)
                 targets = sample_batched['polarity'].to(self.opt.device)
 
                 loss = criterion(outputs, targets)
+                loss += gate + kl
                 loss.backward()
                 optimizer.step()
 
@@ -137,9 +138,9 @@ class Instructor:
         self.model.eval()
         with torch.no_grad():
             for t_batch, t_sample_batched in enumerate(data_loader):
-                t_inputs = [t_sample_batched[col].to(self.opt.device) for col in self.opt.inputs_cols]
+                t_inputs = [t_sample_batched[col].to(self.opt.device) if col not in self.opt.nonTensors else t_sample_batched[col] for col in self.opt.inputs_cols]
                 t_targets = t_sample_batched['polarity'].to(self.opt.device)
-                t_outputs = self.model(t_inputs)
+                t_outputs, _, _ = self.model(t_inputs)
 
                 n_correct += (torch.argmax(t_outputs, -1) == t_targets).sum().item()
                 n_total += len(t_outputs)
@@ -161,9 +162,12 @@ class Instructor:
         _params = filter(lambda p: p.requires_grad, self.model.parameters())
         optimizer = self.opt.optimizer(_params, lr=self.opt.learning_rate, weight_decay=self.opt.l2reg)
 
-        train_data_loader = DataLoader(dataset=self.trainset, batch_size=self.opt.batch_size, shuffle=True)
-        test_data_loader = DataLoader(dataset=self.testset, batch_size=self.opt.batch_size, shuffle=False)
-        val_data_loader = DataLoader(dataset=self.valset, batch_size=self.opt.batch_size, shuffle=False)
+        # train_data_loader = DataLoader(dataset=self.trainset)
+        train_data_loader = self.trainset
+        # test_data_loader = DataLoader(dataset=self.testset)
+        test_data_loader = self.testset
+        # val_data_loader = DataLoader(dataset=self.valset)
+        val_data_loader = self.valset
 
         self._reset_params()
         best_model_path = self._train(criterion, optimizer, train_data_loader, val_data_loader)
@@ -255,11 +259,11 @@ def main():
         'tnet_lf': ['text_raw_indices', 'aspect_indices', 'aspect_in_text'],
         'aoa': ['text_raw_indices', 'aspect_indices'],
         'mgan': ['text_raw_indices', 'aspect_indices', 'text_left_indices'],
-        'bert_spc': ['text_bert_indices', 'bert_segments_ids', 'dependency_graph', 'untok_tok_mapping', 'length'],
+        'bert_spc': ['text_bert_indices', 'bert_segments_ids', 'dependency_graph', 'untok_tok_mapping', 'length', 'distance_to_target', 'text_indices', 'aspect_indices', 'left_indices'],
         'aen_bert': ['text_raw_bert_indices', 'aspect_bert_indices'],
         'lcf_bert': ['text_bert_indices', 'bert_segments_ids', 'text_raw_bert_indices', 'aspect_bert_indices'],
     }
-    nonTensors = ['text_bert_indices', 'bert_segments_ids', 'dependency_graph', 'untok_tok_mapping', 'length']
+    nonTensors = ['untok_tok_mapping', 'length']
     initializers = {
         'xavier_uniform_': torch.nn.init.xavier_uniform_,
         'xavier_normal_': torch.nn.init.xavier_normal,
@@ -285,14 +289,6 @@ def main():
 
     log_file = '{}-{}-{}.log'.format(opt.model_name, opt.dataset, strftime("%y%m%d-%H%M", localtime()))
     logger.addHandler(logging.FileHandler(log_file))
-
-    if opt.seed is not None:
-        random.seed(opt.seed)
-        numpy.random.seed(opt.seed)
-        torch.manual_seed(opt.seed)
-        torch.cuda.manual_seed(opt.seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
 
     ins = Instructor(opt)
     ins.run()
