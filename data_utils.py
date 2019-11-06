@@ -157,6 +157,28 @@ class ABSADataset(Dataset):
             text_raw_bert_indices = tokenizer.text_to_sequence("[CLS] " + text_left + " " + aspect + " " + text_right + " [SEP]")
             aspect_bert_indices = tokenizer.text_to_sequence("[CLS] " + aspect + " [SEP]")
 
+            dependency_graph = idx2gragh[i]
+            dependency_graph = np.pad(dependency_graph, \
+                      ((0, len(text_bert_indices) - len(dependency_graph)), (0, len(text_bert_indices) - len(dependency_graph))), 'constant')
+
+            aspect_mask = [1] * len(text_bert_indices)
+            for k in range(aspect_in_text[0],min(aspect_in_text[1]+1,len(text_bert_indices))):
+                try:
+                    aspect_mask[k] = 0
+                except:
+                    print(len(aspect_mask))
+                    print(k)
+                    print(aspect_in_text)
+                    exit(1)
+            aspect_mask = torch.ByteTensor(aspect_mask)
+
+            text_bert_len = np.sum(text_bert_indices != 0)
+            mask = [1] * len(text_bert_indices)
+            for k in range(text_bert_len):
+                mask[k] = 0
+            mask = torch.ByteTensor(mask)
+
+
             data = {
                 'text_bert_indices': text_bert_indices,
                 'bert_segments_ids': bert_segments_ids,
@@ -171,6 +193,9 @@ class ABSADataset(Dataset):
                 'aspect_indices': aspect_indices,
                 'aspect_in_text': aspect_in_text,
                 'polarity': polarity,
+                'dependency_graph': dependency_graph,
+                'aspect_mask': aspect_mask,
+                'mask': mask
             }
 
             all_data.append(data)
