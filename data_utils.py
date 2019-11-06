@@ -128,6 +128,10 @@ class ABSADataset(Dataset):
         lines = fin.readlines()
         fin.close()
 
+        fin = open(fname+'.graph', 'rb')
+        idx2gragh = pickle.load(fin)
+        fin.close()
+
         all_data = []
         for i in range(0, len(lines), 3):
             text_left, _, text_right = [s.lower().strip() for s in lines[i].partition("$T$")]
