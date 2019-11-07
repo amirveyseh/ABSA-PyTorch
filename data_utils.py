@@ -132,6 +132,10 @@ class ABSADataset(Dataset):
         idx2gragh = pickle.load(fin)
         fin.close()
 
+        fin = open(fname+'.dist', 'rb')
+        idx2dist = pickle.load(fin)
+        fin.close()
+
         all_data = []
         for i in range(0, len(lines), 3):
             text_left, _, text_right = [s.lower().strip() for s in lines[i].partition("$T$")]
@@ -178,6 +182,9 @@ class ABSADataset(Dataset):
                 mask[k] = 0
             mask = torch.ByteTensor(mask)
 
+            dist_to_target = idx2dist[i]
+            dist_padding = [0] * (80 - len(dist_to_target))
+            dist_to_target = np.asarray(dist_to_target + dist_padding, dtype=np.int_)
 
             data = {
                 'text_bert_indices': text_bert_indices,
@@ -195,7 +202,8 @@ class ABSADataset(Dataset):
                 'polarity': polarity,
                 'dependency_graph': dependency_graph,
                 'aspect_mask': aspect_mask,
-                'mask': mask
+                'mask': mask,
+                'dist_to_target': dist_to_target
             }
 
             all_data.append(data)

@@ -56,13 +56,15 @@ class BERT_SPC(nn.Module):
                                    nn.Linear(opt.hidden_dim * 2, opt.hidden_dim * 2), nn.Sigmoid())
 
         self.fc = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
+        self.fc2 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
 
     def forward(self, inputs):
-        text_bert_indices, bert_segments_ids, adj, aspect_mask, mask = inputs[0], inputs[1], inputs[2], inputs[3], inputs[4]
+        text_bert_indices, bert_segments_ids, adj, aspect_mask, mask, dist_to_target = inputs[0], inputs[1], inputs[2], inputs[3], inputs[4], inputs[5]
         text_bert_len = torch.sum(text_bert_indices != 0, dim=-1)
         max_len = max(text_bert_len.data.cpu().numpy().tolist())
         aspect_mask = aspect_mask[:,:max_len]
         mask = mask[:,:max_len]
+        dist_to_target = dist_to_target[:,:max_len]
         # text_bert_indices = self.squeeze_embedding(text_bert_indices, text_bert_len)
         # bert_segments_ids = self.squeeze_embedding(bert_segments_ids, text_bert_len)
         x, pooled_output = self.bert(text_bert_indices, bert_segments_ids, output_all_encoded_layers=False)
@@ -84,8 +86,8 @@ class BERT_SPC(nn.Module):
         logits = self.dense(torch.cat([pooled_output,out],dim=1))
 
         output_w = self.fc(torch.cat([x, aspect.repeat(1, x.shape[1]).view(x.shape)], dim=2))
-        scores = (logits.repeat(1,text_indices.shape[1]).view(text_indices.shape[0], text_indices.shape[1], -1) * output_w).sum(2)
+        scores = (logits.repeat(1,x.shape[1]).view(x.shape[0], x.shape[1], -1) * output_w).sum(2)
         sf2 = nn.Softmax(2)
         kl = (sf1(scores) * sf1(dist_to_target.float())).sum(1).mean()
 
-        return logits, xy
+        return logits, xy, kl

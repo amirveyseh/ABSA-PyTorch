@@ -101,11 +101,12 @@ class Instructor:
                 optimizer.zero_grad()
 
                 inputs = [sample_batched[col].to(self.opt.device) for col in self.opt.inputs_cols]
-                outputs, gate = self.model(inputs)
+                outputs, gate, kl = self.model(inputs)
                 targets = sample_batched['polarity'].to(self.opt.device)
 
                 loss = criterion(outputs, targets)
-                # loss += gate
+                loss += 0.000000000000000000001 * gate
+                loss += 0.000000000000000000001 * kl
                 loss.backward()
                 optimizer.step()
 
@@ -140,7 +141,7 @@ class Instructor:
             for t_batch, t_sample_batched in enumerate(data_loader):
                 t_inputs = [t_sample_batched[col].to(self.opt.device) for col in self.opt.inputs_cols]
                 t_targets = t_sample_batched['polarity'].to(self.opt.device)
-                t_outputs, _ = self.model(t_inputs)
+                t_outputs, _, _ = self.model(t_inputs)
 
                 n_correct += (torch.argmax(t_outputs, -1) == t_targets).sum().item()
                 n_total += len(t_outputs)
@@ -256,7 +257,7 @@ def main():
         'tnet_lf': ['text_raw_indices', 'aspect_indices', 'aspect_in_text'],
         'aoa': ['text_raw_indices', 'aspect_indices'],
         'mgan': ['text_raw_indices', 'aspect_indices', 'text_left_indices'],
-        'bert_spc': ['text_bert_indices', 'bert_segments_ids', 'dependency_graph', 'aspect_mask', 'mask'],
+        'bert_spc': ['text_bert_indices', 'bert_segments_ids', 'dependency_graph', 'aspect_mask', 'mask', 'dist_to_target'],
         'aen_bert': ['text_raw_bert_indices', 'aspect_bert_indices'],
         'lcf_bert': ['text_bert_indices', 'bert_segments_ids', 'text_raw_bert_indices', 'aspect_bert_indices'],
     }
@@ -282,7 +283,7 @@ def main():
     opt.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') \
         if opt.device is None else torch.device(opt.device)
 
-    log_file = '{}-{}-{}.log'.format(opt.model_name, opt.dataset, strftime("%y%m%d-%H%M", localtime()))
+    log_file = 'log/{}-{}-{}.log'.format(opt.model_name, opt.dataset, strftime("%y%m%d-%H%M", localtime()))
     logger.addHandler(logging.FileHandler(log_file))
 
     ins = Instructor(opt)
