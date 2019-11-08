@@ -161,9 +161,9 @@ class ABSADataset(Dataset):
             text_raw_bert_indices = tokenizer.text_to_sequence("[CLS] " + text_left + " " + aspect + " " + text_right + " [SEP]")
             aspect_bert_indices = tokenizer.text_to_sequence("[CLS] " + aspect + " [SEP]")
 
-            dependency_graph = idx2gragh[i]
+            dependency_graph = np.asarray(idx2gragh[i])[:80,:80]
             dependency_graph = np.pad(dependency_graph, \
-                      ((0, len(text_bert_indices) - len(dependency_graph)), (0, len(text_bert_indices) - len(dependency_graph))), 'constant')
+                      ((0, max([0, len(text_bert_indices) - len(dependency_graph)])), (0, max([0, len(text_bert_indices) - len(dependency_graph)]))), 'constant')
 
             aspect_mask = [1] * len(text_bert_indices)
             for k in range(aspect_in_text[0],min(aspect_in_text[1]+1,len(text_bert_indices))):
@@ -184,7 +184,7 @@ class ABSADataset(Dataset):
 
             dist_to_target = idx2dist[i]
             dist_padding = [0] * (80 - len(dist_to_target))
-            dist_to_target = np.asarray(dist_to_target + dist_padding, dtype=np.int_)
+            dist_to_target = np.asarray(dist_to_target + dist_padding, dtype=np.int_)[:80]
 
             data = {
                 'text_bert_indices': text_bert_indices,

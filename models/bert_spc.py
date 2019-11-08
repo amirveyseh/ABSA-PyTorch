@@ -57,6 +57,8 @@ class BERT_SPC(nn.Module):
 
         self.fc = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
         self.fc2 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
+        self.fc3 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
+        self.fc4 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
 
     def forward(self, inputs):
         text_bert_indices, bert_segments_ids, adj, aspect_mask, mask, dist_to_target = inputs[0], inputs[1], inputs[2], inputs[3], inputs[4], inputs[5]
