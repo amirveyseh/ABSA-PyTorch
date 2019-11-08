@@ -42,7 +42,7 @@ class BERT_SPC(nn.Module):
         self.dense = nn.Linear(opt.bert_dim+2*opt.hidden_dim, opt.polarities_dim)
         # self.dense = nn.Linear(2*opt.hidden_dim, opt.polarities_dim)
 
-        self.text_lstm = DynamicLSTM(768, opt.hidden_dim, num_layers=1, batch_first=True,
+        self.text_lstm = DynamicLSTM(opt.bert_dim, opt.hidden_dim, num_layers=1, batch_first=True,
                                      bidirectional=True)
 
         self.gc1 = GraphConvolution(2*opt.hidden_dim, 2*opt.hidden_dim)
@@ -80,6 +80,7 @@ class BERT_SPC(nn.Module):
         sf1 = nn.Softmax(1)
         xy = (x1*y1).sum(1).mean()
         x = gate2 * self.gc2(gcn1, adj[:, :max_len, :max_len])
+        # x = self.gc2(gcn1, adj[:, :max_len, :max_len])
         out = torch.max(x, dim=1)[0]
         pooled_output = self.dropout(pooled_output)
         out = self.dropout(out)
@@ -91,3 +92,5 @@ class BERT_SPC(nn.Module):
         kl = (sf1(scores) * sf1(dist_to_target.float())).sum(1).mean()
 
         return logits, xy, kl
+        # return logits, xy, 0
+        return logits, 0, 0
