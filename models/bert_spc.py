@@ -13,7 +13,7 @@ class GraphConvolution(nn.Module):
     """
     Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
     """
-    def __init__(self, in_features, out_features, bias=True):
+    def __init__(self, in_features, out_features, opt, bias=True):
         super(GraphConvolution, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -23,6 +23,11 @@ class GraphConvolution(nn.Module):
             self.bias = nn.Parameter(torch.FloatTensor(out_features))
         else:
             self.register_parameter('bias', None)
+
+        self.fc = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
+        self.fc2 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
+        self.fc3 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
+        self.fc4 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
 
     def forward(self, text, adj):
         hidden = torch.matmul(text, self.weight)
@@ -45,8 +50,8 @@ class BERT_SPC(nn.Module):
         self.text_lstm = DynamicLSTM(opt.bert_dim, opt.hidden_dim, num_layers=1, batch_first=True,
                                      bidirectional=True)
 
-        self.gc1 = GraphConvolution(2*opt.hidden_dim, 2*opt.hidden_dim)
-        self.gc2 = GraphConvolution(2*opt.hidden_dim, 2*opt.hidden_dim)
+        self.gc1 = GraphConvolution(2*opt.hidden_dim, 2*opt.hidden_dim, opt)
+        self.gc2 = GraphConvolution(2*opt.hidden_dim, 2*opt.hidden_dim, opt)
 
         self.gate1 = nn.Sequential(nn.Linear(opt.hidden_dim*2, opt.hidden_dim*2), nn.Sigmoid(),
                                    nn.Linear(opt.hidden_dim * 2, opt.hidden_dim * 2), nn.Sigmoid(),
