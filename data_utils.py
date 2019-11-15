@@ -207,6 +207,8 @@ class ABSADataset(Dataset):
             }
 
             all_data.append(data)
+        with open(fname+'.dist', 'wb') as file:
+            pickle.dump(idx2dist, file)
         self.data = all_data
 
     def __getitem__(self, index):

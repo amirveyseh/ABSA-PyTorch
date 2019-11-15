@@ -30,6 +30,7 @@ class GraphConvolution(nn.Module):
         self.fc4 = nn.Linear(2 * 2 * opt.hidden_dim, opt.polarities_dim)
 
     def forward(self, text, adj):
+        adj = adj.float()
         hidden = torch.matmul(text, self.weight)
         denom = torch.sum(adj, dim=2, keepdim=True) + 1
         output = torch.matmul(adj, hidden) / denom

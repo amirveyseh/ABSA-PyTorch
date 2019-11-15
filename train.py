@@ -244,7 +244,11 @@ def main():
         'laptop': {
             'train': './datasets/semeval14/Laptops_Train.xml.seg',
             'test': './datasets/semeval14/Laptops_Test_Gold.xml.seg'
-        }
+        },
+        'MAMS': {
+            'train': 'datasets/MAMS/train.txt',
+            'test': 'datasets/MAMS/test.txt'
+            }
     }
     input_colses = {
         'lstm': ['text_raw_indices'],
