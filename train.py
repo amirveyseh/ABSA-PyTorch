@@ -105,8 +105,8 @@ class Instructor:
                 targets = sample_batched['polarity'].to(self.opt.device)
 
                 loss = criterion(outputs, targets)
-                loss += 0.000000000000000000000000000000000000000000000000000000000000000000001 * gate
-                loss += 0.000000000000000000000000000000000000000000000000000000000000000000001 * kl
+                loss += self.opt.gate_w * gate
+                loss += self.opt.kl_w * kl
                 loss.backward()
                 optimizer.step()
 
@@ -184,6 +184,8 @@ def main():
     parser.add_argument('--initializer', default='xavier_uniform_', type=str)
     parser.add_argument('--learning_rate', default=2e-5, type=float, help='try 5e-5, 2e-5 for BERT, 1e-3 for others')
     parser.add_argument('--dropout', default=0.1, type=float)
+    parser.add_argument('--gate_w', default=0.01, type=float)
+    parser.add_argument('--kl_w', default=0.01, type=float)
     parser.add_argument('--l2reg', default=0.01, type=float)
     parser.add_argument('--num_epoch', default=10, type=int, help='try larger number for non-BERT models')
     parser.add_argument('--batch_size', default=32, type=int, help='try 16, 32, 64 for BERT models')
