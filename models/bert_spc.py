@@ -101,4 +101,4 @@ class BERT_SPC(nn.Module):
 
         return logits, xy, kl
         # return logits, xy, 0
-        return logits, 0, 0
+        # return logits, 0, 0
