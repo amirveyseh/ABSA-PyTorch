@@ -171,9 +171,10 @@ class Instructor:
         self.model.eval()
         test_acc, test_f1 = self._evaluate_acc_f1(test_data_loader)
         logger.info('>> test_acc: {:.4f}, test_f1: {:.4f}'.format(test_acc, test_f1))
+        return test_f1
 
 
-def main():
+def main(fold):
     # Hyper Parameters
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', default='bert_spc', type=str)
@@ -244,8 +245,8 @@ def main():
             'test': './datasets/semeval14/Laptops_Test_Gold.xml.seg'
         },
         'better': {
-            'train': './datasets/better/fold1/train.txt',
-            'test': './datasets/better/fold1/test.txt'
+            'train': './datasets/better/fold'+str(fold)+'/train.txt',
+            'test': './datasets/better/fold'+str(fold)+'/test.txt'
         }
     }
     input_colses = {
@@ -289,8 +290,11 @@ def main():
     logger.addHandler(logging.FileHandler(log_file))
 
     ins = Instructor(opt)
-    ins.run()
+    return ins.run()
 
 
 if __name__ == '__main__':
-    main()
+    scores = []
+    for fold in range(1,6):
+        scores.append(main(fold))
+    print(sum(scores)/len(scores))
